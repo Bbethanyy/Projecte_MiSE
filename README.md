@@ -1,7 +1,7 @@
 View this project on [CADLAB.io](https://cadlab.io/project/27800). 
 
 # Projecte_MiSE
-# Projecte EDD: Disseny eletrònic d'un maleter
+
 **Membres del grup:** Bethany Quintero i Rossend Cera
 ----------------------------------------------------
 ## Objectiu
