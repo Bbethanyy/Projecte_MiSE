@@ -16,6 +16,9 @@ Dissenyar un sistema per controlar els moviments de'un Robot mitjançant un Micr
 - Dues LDRs
 - Un mòdul UART<->Wifi
 
+  ## Diagrama de blocs
+![image](<img width="698" alt="mise" src="https://github.com/Bbethanyy/Projecte_MiSE/assets/127347516/a9670b46-5fc1-450c-af71-db5ddddf0d0d">)
+
 ## Components
 | Ref. | Descripció| Datasheet |
 | ------ | -----------------| ------------------|
