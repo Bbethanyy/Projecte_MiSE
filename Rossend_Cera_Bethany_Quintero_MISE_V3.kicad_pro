@@ -437,14 +437,14 @@
         "name": "Analog",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "schematic_color": "rgb(255, 150, 12)",
-        "track_width": 0.2,
-        "via_diameter": 0.6,
-        "via_drill": 0.3,
+        "track_width": 0.25,
+        "via_diameter": 1.6,
+        "via_drill": 0.8,
         "wire_width": 20
       },
       {
         "bus_width": 30,
-        "clearance": 0.2,
+        "clearance": 0.3,
         "diff_pair_gap": 0.25,
         "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
@@ -454,14 +454,14 @@
         "name": "GND",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "schematic_color": "rgb(255, 20, 29)",
-        "track_width": 0.2,
-        "via_diameter": 0.6,
-        "via_drill": 0.3,
+        "track_width": 0.75,
+        "via_diameter": 1.6,
+        "via_drill": 0.8,
         "wire_width": 30
       },
       {
         "bus_width": 30,
-        "clearance": 0.2,
+        "clearance": 0.3,
         "diff_pair_gap": 0.25,
         "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
@@ -471,9 +471,9 @@
         "name": "POWER",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "schematic_color": "rgb(94, 255, 70)",
-        "track_width": 0.2,
-        "via_diameter": 0.6,
-        "via_drill": 0.3,
+        "track_width": 0.75,
+        "via_diameter": 1.6,
+        "via_drill": 0.8,
         "wire_width": 30
       },
       {
@@ -488,9 +488,9 @@
         "name": "Signal",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "schematic_color": "rgb(35, 29, 255)",
-        "track_width": 0.2,
-        "via_diameter": 0.6,
-        "via_drill": 0.3,
+        "track_width": 0.25,
+        "via_diameter": 1.6,
+        "via_drill": 0.8,
         "wire_width": 20
       }
     ],
@@ -623,6 +623,14 @@
       {
         "netclass": "Signal",
         "pattern": "SD+"
+      },
+      {
+        "netclass": "Signal",
+        "pattern": "SDA+"
+      },
+      {
+        "netclass": "Signal",
+        "pattern": "SDA-"
       }
     ]
   },
