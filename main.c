@@ -22,9 +22,12 @@ uint8_t  Array_LCD[8];
 char  test_LCD[17];
 uint8_t longitud;
 
+//LEDS RGB
+
+uint8_t Array_led[2];
 
 
-
+//TIMER
 uint32_t captura_temporitzador;
 uint8_t  capture_done;
 uint32_t contador_ms;
@@ -92,23 +95,22 @@ P6DIR  &= ~0X01;
 
 
 TB3CTL|=TBSSEL_2;
-TB3CCTL1|=CCIE_1|CAP_1;
+TB3CCTL1|=CCIE_1|CAP_1|SCS_1; //S'OBSERVA EL VALOR DEL BIT DE CAPTURA
+capture_done=0;
 
 
 }
 
-    captura_timer(uint16_t timer ){
-
-    TB3CTL|=MC_1;
+void captura_timer(uint32_t timer ){
     capture_done=0;
+    TB3CTL|=MC_1;
+    TB3CCTL1|=CM_1;
 
     while(capture_done==0){
 
     }
     timer=TB3CCR1;
-
-    TB3CTL&=~MC_1; //PARA EL COMPTADOR
-
+    TB3CTL|=~MC_1;
 }
 
 
@@ -156,7 +158,31 @@ void init_LCD(){
 
 // ROBOT
 
+//LEDS
+
+leds_RGB(uint8_t izq_led,uint8_t der_led){
+    Array_led[0]=0x0B;
+    Array_led[1]=izq_led;
+    Array_led[2]=der_led;
+    I2C_send(0x10,Array_led,3);
+    delay(10);
+}
+
 //MOTOR
+
+mov_motor(uint8_t sentit_1,uint8_t velocitat_1,uint8_t sentit_2,uint8_t velocitat_2){
+
+      Array_motor[0]=0x00;
+      Array_motor[1]=sentit_1;
+      Array_motor[2]=velocitat_1;
+      Array_motor[3]=sentit_2;
+      Array_motor[4]=velocitat_2;
+      I2C_send(0x10,Array_motor,5);
+      delay(10);
+
+
+
+}
 
 
 
@@ -175,34 +201,42 @@ void main(void)
     i2c_init();
 
 
-
-
-
-
-    Array_motor[0]=0x00;
-    Array_motor[1]=0x02;
-    Array_motor[2]=0x00;
-    Array_motor[3]=0x01;
-    Array_motor[4]=0;
-
-
-
-
-
-
-
-
     __enable_interrupt();
 
-    I2C_send(0x10,Array_motor,5);
-    delay(10);
+       init_LCD();
+       delay(10);
+       longitud=sprintf(test_LCD,"@VELOCITAT \n ");
+       I2C_send(0x3E,test_LCD,longitud);
+       delay(10);
+       longitud=sprintf(test_LCD,"@ VELOCIIITAT");
+       delay(10);
+       I2C_send(0x3E,test_LCD,longitud);
+       delay(10);
 
-    init_LCD();
-    delay(10);
-    longitud=sprintf(test_LCD,"@HOLA");
-    I2C_send(0x3E,test_LCD,longitud);
+    //TEST ROBOT
+    while(1){
+
+    }
+
+    leds_RGB(1,1);
+    mov_motor(0x01,0x20,0x01,0x20);
+    delay(2000);
+    leds_RGB(2,2);
+    mov_motor(0x02,0x20,0x02,0x20);
+    delay(2000);
+    leds_RGB(3,3);
+    mov_motor(0x01,0x20,0x00,0x00);
+    delay(2000);
+    leds_RGB(4,4);
+    mov_motor(0x00,0x00,0x01,0x20);
+    delay(5000);
+    leds_RGB(0,0);
+    mov_motor(0x00,0x00,0x01,0x00);
+
     delay(100);
-    captura_timer(captura_temporitzador);
+
+
+//    captura_timer(captura_temporitzador );
     while(1){
 
 
@@ -232,7 +266,7 @@ __interrupt void PORT0_ISR (void)
 /* El que volem fer a la rutina d’atenció d’Interrupció */
 }
 
-#pragma vector=TIMER0_B3_VECTOR //Aquest és el nom important
+#pragma vector=TIMER3_B1_VECTOR //Aquest és el nom important
 __interrupt void PORT3_ISR (void)
 {
 
