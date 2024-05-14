@@ -4,6 +4,12 @@
  *  Created on: 23 abr. 2024
  *      Author: USUARIO
  */
+/*
+ * config_i2c.c
+ *
+ *  Created on: 23 abr. 2024
+ *      Author: USUARIO
+ */
 #include <msp430.h>
 #include <stdio.h>
 #include <stdint.h>
