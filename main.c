@@ -49,8 +49,8 @@ void init_GPIO(void){ //INICIALITZACIÓ DELS GPIOS
     P3SEL0 &=~0X3E;
     P3SEL1 &=~0X3E;
     P3DIR &=~0X3E;
-    P3REN&=~0X3E;
-    P3OUT&=~0X3E;
+    P3REN|=0X20;
+    P3OUT|=0X20; //pull up
     P3IE|=0X3E;
     P3IES|=0x3E;
     P3IFG&=~0x3E;
@@ -194,16 +194,14 @@ void main(void)
 
 
     __enable_interrupt();
-     delay(100);
-     while(1){
 
-     }
+
      init_LCD();                        //Inicialitza LCD
           delay(10);
-          longitud=sprintf(test_LCD,"@VELOCUAITAT \n ");  // la paraula velocitat que volem mostrar en la pantalla
+          longitud=sprintf(test_LCD,"@HOLA \n ");  // la paraula velocitat que volem mostrar en la pantalla
           I2C_send(0x3E,test_LCD,longitud);             //s'envia aquesta dada
           delay(10);
-          longitud=sprintf(test_LCD,"@ VELOCIIITAT"); //Es fa visualitzar en el display LCD el missatge escrit
+          longitud=sprintf(test_LCD,"@ ADIOS"); //Es fa visualitzar en el display LCD el missatge escrit
           delay(10);
           I2C_send(0x3E,test_LCD,longitud);
           delay(10);
@@ -212,7 +210,7 @@ void main(void)
 
 
     while(1){
-         delay(100);
+         delay(5000);
          mov_motor(0x00,0x00,0x01,0x00);
     }
     //ES COMPROVA EL MOVIMENT DEL MOTOR I EL COLOR DEL LEDS CADA 2 SEGONS
@@ -270,30 +268,33 @@ case 0x00:break;
 
 case 0x02:break;
 
-case 0x04:
-
-mov_motor(0x02,0x20,0x02,0x20);
-break;
-
-case 0x06:
-mov_motor(0x02,0x20,0x02,0x00);
-break;
-
-case 0x08:
-
+case 0x04: //P3.1 BOTTOM
 delay(10);
-longitud=sprintf(test_LCD,"@VELOCUAITAT \n ");  // la paraula velocitat que volem mostrar en la pantalla
-I2C_send(0x3E,test_LCD,longitud);             //s'envia aquesta dada
-
 mov_motor(0x01,0x20,0x01,0x20);
 break;
 
-case 0x0A:
-mov_motor(0x01,0x00,0x01,0x20);
+case 0x06: //P3.2 LEFT
+delay(20);
+mov_motor(0x02,0x20,0x02,0x00);
 break;
 
-case 0x0C:
-mov_motor(0x01,0x00,0x01,0x20);
+case 0x08: // P3.3 TOP
+
+delay(10);
+longitud=sprintf(test_LCD,"@HOLA \n ");  // la paraula velocitat que volem mostrar en la pantalla
+I2C_send(0x3E,test_LCD,longitud);             //s'envia aquesta dada
+delay(10);
+mov_motor(0x02,0x20,0x02,0x20);
+break;
+
+case 0x0A: //P3.4 RIGHT
+delay(20);
+mov_motor(0x01,0x20,0x01,0x00);
+break;
+
+case 0x0C:// P3.5 BOTON
+delay(20);
+mov_motor(0x01,0x20,0x01,0x20);
 break;
 
 default :break;
