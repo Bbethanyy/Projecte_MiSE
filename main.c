@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 
-#include "clock.h" //LLIBRERIA QUE CONFIGURA EL RELLOTGE SMCLK
+#include "clock.h"      //LLIBRERIA QUE CONFIGURA EL RELLOTGE SMCLK
 #include "config_i2c.h" //LIBRERIA QUE CONFIGURA LA COMUNICACIÓ I2C
 /**
  * main.c
@@ -19,8 +19,8 @@ uint8_t Array_motor[5]; //VARIABLE ENCARREGUADA DE ENVIA LES TRAMES I2C AL MOTOR
 
 //LCD
 uint8_t  Array_LCD[8];//VARIABLE ENCARREGUADA DE ENVIA LES TRAMES I2C PER CONFIGURAT LCD
-char  test_LCD[18];//CARACTERS A REPRESENTAR EN EL DISPLAY
-uint8_t longitud;//NUMERO DE CARACTERS QUE REPRESENTA EL DISPLAY
+char  test_LCD[18];   //CARACTERS A REPRESENTAR EN EL DISPLAY
+uint8_t longitud;     //NUMERO DE CARACTERS QUE REPRESENTA EL DISPLAY
 
 //LEDS RGB
 
@@ -32,44 +32,37 @@ uint32_t captura_temporitzador;
 uint8_t  capture_done;
 uint32_t contador_ms;//NUMERO DE CICLES NECESSARIS PER GENERAR 1MS PER UN SMLCK 16MHZ
 
+volatile uint8_t joystick_state = 0;
 
 
 void init_GPIO(void){ //INICIALITZACIÓ DELS GPIOS
 
-
     //PUERTO 5 P5.2 (RESET de DISPLAY)
 
-    P5SEL0 &=~0X04; //S'ESPECIFICA COM A GPIO EL PINT P5.2
-    P5SEL1 &=~0X04;//S'ESPECIFICA COM A GPIO EL PINT P5.2
-    P5DIR  |=0X04;//S'ESPECIFICA COM A OUTPUT
-    P5OUT  =0X00; // LES SORTIDES S'ESPECIFIQUEN A 0
+    P5SEL0 &= ~0X04;  //S'ESPECIFICA COM A GPIO EL PINT P5.2
+    P5SEL1 &= ~0X04;  //S'ESPECIFICA COM A GPIO EL PINT P5.2
+    P5DIR  |= 0X04;   //S'ESPECIFICA COM A OUTPUT
+    P5OUT  =  0X00;    //LES SORTIDES S'ESPECIFIQUEN A 0
 
     //PORT P3 (P3.1 (BOTTOM)/P3.2(LEFT)/P3.3(TOP)/P3.4(RIGHT)/P3.5(BOTON)
+    P3SEL0 &= ~0X3E;   //Especifica P3.1 a P3.5 com a GPIO
+    P3SEL1 &= ~0X3E;
+    P3DIR  &= ~0X3E;   //S'especifica com a input
+    P3REN  |= 0X20;    //Habilitar resistencies pull up
+    P3OUT  |= 0X20;    //pull up
 
-    P3SEL0 &=~0X3E;
-    P3SEL1 &=~0X3E;
-    P3DIR &=~0X3E;
-    P3REN|=0X20;
-    P3OUT|=0X20; //pull up
-    P3IE|=0X3E;
-    P3IES|=0x3E;
-    P3IFG&=~0x3E;
-
+    P3IE   |= 0X3E;    //Habilitar interruptors
+    P3IES  |= 0x3E;
+    P3IFG  &= ~0x3E;   //Creal interrupt flags
 
 
     //PORT P4 (4.4//4.5)
-    P5SEL0 &=~0X30; //S'ESPECIFICA COM A GPIO EL PINT P5.2
-       P5SEL1 &=~0X30;//S'ESPECIFICA COM A GPIO EL PINT P5.2
-       P5DIR  |=0X30;//S'ESPECIFICA COM A OUTPUT
-       P5OUT  =0X00; // LES SORTIDES S'ESPECIFIQUEN A 0
-
-
-
+    P5SEL0 &=~0X30;   //S'ESPECIFICA COM A GPIO EL PINT P5.2
+    P5SEL1 &=~0X30;//S'ESPECIFICA COM A GPIO EL PINT P5.2
+    P5DIR  |=0X30; //S'ESPECIFICA COM A OUTPUT
+    P5OUT  =0X00;  // LES SORTIDES S'ESPECIFIQUEN A 0
 
 }
-
-
-
 
 
 //TIMERS CONFIGURACIÓ
@@ -78,24 +71,21 @@ void init_timer(){ //timer de 1ms
 
 
 //INICIALITZACIÓ TIMER TB0
-TB0CTL|=TBSSEL_2; //S'agafa el rellotge SMCLK 16MHZ
-TB0CCTL0|=CCIE_1; //Habilita la interupcio CCIE
+    TB0CTL|=TBSSEL_2; //S'agafa el rellotge SMCLK 16MHZ
+    TB0CCTL0|=CCIE_1; //Habilita la interupcio CCIE
+    TB0CCR0=16000;    //CONFIGURA A 1mS CONVERSIO DE 16MHZ A 1MS ES EL NUMERO DE POLSOS PERQUE DURI 1ms
 
-TB0CCR0=16000;//CONFIGURA A 1mS CONVERSIO DE 16MHZ A 1MS ES EL NUMERO DE POLSOS PERQUE DURI 1ms
+    //INICIALITZACIÓ TIMER TB1
 
-//INICIALITZACIÓ TIMER TB1
+    //PIN FUNCIó P6.0-> TB3.1 CCIA Capture
 
-//PIN FUNCIó P6.0-> TB3.1 CCIA
+    P6SEL0 |= 0X01;
+    P6SEL1 &= ~0X01;
+    P6DIR  &= ~0X01;
 
-P6SEL0 |= 0X01;
-P6SEL1 &= ~0X01;
-P6DIR  &= ~0X01;
-
-
-TB3CTL|=TBSSEL_2;
-TB3CCTL1|=CCIE_1|CAP_1|SCS_1; //S'OBSERVA EL VALOR DEL BIT DE CAPTURA
-capture_done=0;
-
+    TB3CTL|=TBSSEL_2;
+    TB3CCTL1|=CCIE_1|CAP_1|SCS_1; //S'OBSERVA EL VALOR DEL BIT DE CAPTURA
+    capture_done=0;
 
 }
 
@@ -112,16 +102,14 @@ void captura_timer(uint32_t timer ){
 }
 
 
-void delay(uint32_t temps){ //Genera el temps de espera
+void delay(uint32_t temps){   //Genera el temps de espera
 
-    contador_ms=0; //inicialment s'inicialitza a 0
-
-    TB0CTL|=MC_1;     //S'habilita mode UP
+    contador_ms=0;            //inicialment s'inicialitza a 0
+    TB0CTL|=MC_1;             //S'habilita mode UP
 
     while(temps>contador_ms){ //fins que s'hagui fet mes que "temps" de  interupcions surt del bucle
-
     }
-    TB0CTL&=~MC_1; //PARA EL COMPTADOR
+    TB0CTL&=~MC_1;            //PARA EL COMPTADOR
 }
 
 //CONFIGURACIO_LCD
@@ -153,7 +141,6 @@ void init_LCD(){
 }
 
 
-
 // ROBOT
 
 //LEDS
@@ -165,6 +152,7 @@ leds_RGB(uint8_t izq_led,uint8_t der_led){ //Modifica el color dels LEDS RGB
     I2C_send(0x10,Array_led,3); //S'envia les dades
     delay(10);
 }
+
 
 //MOTOR
 
@@ -180,8 +168,6 @@ mov_motor(uint8_t sentit_1,uint8_t velocitat_1,uint8_t sentit_2,uint8_t velocita
       delay(10);
 }
 
-
-
 void main(void)
 {
     WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
@@ -192,65 +178,88 @@ void main(void)
        init_GPIO();                          //els pins GPIOs
        i2c_init();                           //i el BUS I2C
 
-
     __enable_interrupt();
 
 
      init_LCD();                        //Inicialitza LCD
           delay(10);
-          longitud=sprintf(test_LCD,"@HOLA \n ");  // la paraula velocitat que volem mostrar en la pantalla
+          longitud=sprintf(test_LCD,"@HOLA y \n ");  // la paraula velocitat que volem mostrar en la pantalla
           I2C_send(0x3E,test_LCD,longitud);             //s'envia aquesta dada
           delay(10);
           longitud=sprintf(test_LCD,"@ ADIOS"); //Es fa visualitzar en el display LCD el missatge escrit
           delay(10);
           I2C_send(0x3E,test_LCD,longitud);
           delay(10);
+
     leds_RGB(1,1);
     //TEST ROBOT
 
 
-    while(1){
-         delay(5000);
-         mov_motor(0x00,0x00,0x01,0x00);
-    }
-    //ES COMPROVA EL MOVIMENT DEL MOTOR I EL COLOR DEL LEDS CADA 2 SEGONS
-    leds_RGB(1,1);
-    mov_motor(0x01,0x20,0x01,0x20);
-    delay(2000);
-    leds_RGB(2,2);
-    mov_motor(0x02,0x20,0x02,0x20);
-    delay(2000);
-    leds_RGB(3,3);
-    mov_motor(0x01,0x20,0x00,0x00);
-    delay(2000);
-    leds_RGB(4,4);
-    mov_motor(0x00,0x00,0x01,0x20);
-    delay(5000);
-    leds_RGB(0,0);
-    mov_motor(0x00,0x00,0x01,0x00);
+    while (1) {
+        // Processar l'estat del joystick
+              switch (joystick_state) {
+                  case 1: // BOTTOM
+                      mov_motor(0x01, 0x20, 0x01, 0x20);
+                      joystick_state = 0; // Reinicia l'estat després de processar-lo
+                      break;
+                  case 2: // LEFT
+                      mov_motor(0x02, 0x20, 0x01, 0x00);
+                      joystick_state = 0;
+                      break;
+                  case 3: // TOP
+                      longitud = sprintf(test_LCD, "@HOLA \n ");
+                      I2C_send(0x3E, test_LCD, longitud);
+                      delay(10);
+                      mov_motor(0x01, 0x20, 0x02, 0x20);
+                      joystick_state = 0;
+                      break;
+                  case 4: // RIGHT
+                      mov_motor(0x01, 0x00, 0x02, 0x20);
+                      joystick_state = 0;
+                      break;
+                  case 5: // BUTTON
+                      mov_motor(0x00, 0x00, 0x00, 0x00);
+                      joystick_state = 0;
+                      break;
+                  default: break;
+              }
 
-    delay(100);
+                // Motor and LED test sequence
+                leds_RGB(1, 1);
+                mov_motor(0x01, 0x20, 0x01, 0x20);
+                delay(2000);
+                leds_RGB(2, 2);
+                mov_motor(0x02, 0x20, 0x02, 0x20);
+                delay(2000);
+                leds_RGB(3, 3);
+                mov_motor(0x01, 0x20, 0x00, 0x00);
+                delay(2000);
+                leds_RGB(4, 4);
+                mov_motor(0x00, 0x00, 0x01, 0x20);
+                delay(5000);
+                leds_RGB(0, 0);
+                mov_motor(0x00, 0x00, 0x01, 0x00);
+                delay(100);
 
+
+}
 
 //    captura_timer(captura_temporitzador );
-    while(1){
-
-
-    }
-
-
+//    while(1){
+//
+//
+//    }
+//
+//
 
 
 
     //CONFIGURACIO LED LCR
 
 
-
-}
-
 // INTERUPCIONS PORTS GPIOS
 
-
+}
 
 //PORT 3
 
@@ -258,56 +267,82 @@ void main(void)
 __interrupt void port3_ISR(void)
 { //PORT P3 (P3.1 (BOTTOM)/P3.2(LEFT)/P3.3(TOP)/P3.4(RIGHT)/P3.5(BOTON)
 
-P3IE&=~0X3C;
+//P3IE&=~0X3E;
 
 uint8_t vector_flag=P3IV;
 
 switch(vector_flag){
 
-case 0x00:break;
+    case 0x00:break;
+    case 0x02:break;
 
-case 0x02:break;
+    case 0x04:                      //P3.1 BOTTOM
+        delay(10);
+        mov_motor(0x01,0x20,0x01,0x20);
+        break;
 
-case 0x04: //P3.1 BOTTOM
-delay(10);
-mov_motor(0x01,0x20,0x01,0x20);
-break;
+    case 0x06:                     //P3.2 LEFT
+        delay(20);
+        mov_motor(0x02,0x20,0x01,0x00);
+        break;
 
-case 0x06: //P3.2 LEFT
-delay(20);
-mov_motor(0x02,0x20,0x02,0x00);
-break;
+    case 0x08:                    // P3.3 TOP
 
-case 0x08: // P3.3 TOP
+        delay(10);
+        longitud=sprintf(test_LCD,"@HOLA \n ");       // la paraula velocitat que volem mostrar en la pantalla
+        I2C_send(0x3E,test_LCD,longitud);             //s'envia aquesta dada
+        delay(10);
+        mov_motor(0x01,0x20,0x02,0x20);
+        break;
 
-delay(10);
-longitud=sprintf(test_LCD,"@HOLA \n ");  // la paraula velocitat que volem mostrar en la pantalla
-I2C_send(0x3E,test_LCD,longitud);             //s'envia aquesta dada
-delay(10);
-mov_motor(0x02,0x20,0x02,0x20);
-break;
+    case 0x0A:                    //P3.4 RIGHT
+        delay(20);
+        mov_motor(0x01,0x00,0x02,0x20);
+        break;
 
-case 0x0A: //P3.4 RIGHT
-delay(20);
-mov_motor(0x01,0x20,0x01,0x00);
-break;
+    case 0x0C:                   // P3.5 BOTON
+    delay(20);
+    mov_motor(0x00,0x00,0x00,0x00);
+    break;
 
-case 0x0C:// P3.5 BOTON
-delay(20);
-mov_motor(0x01,0x20,0x01,0x20);
-break;
-
-default :break;
+    default :break;
 
 }
-
-P3IE|=0X3C;
-P3IFG=0X00;
+P3IE|=0X3E;
+P3IFG=0X3E;
 
 
 
 
 }
+//#pragma vector=PORT3_VECTOR
+//__interrupt void port3_ISR(void) {
+//    uint8_t vector_flag = P3IV;
+//
+//    switch (vector_flag) {
+//        case 0x00: break;
+//        case 0x02: break; // No utilitzat
+//        case 0x04: // P3.1 BOTTOM
+//            joystick_state = 1;
+//            break;
+//        case 0x06: // P3.2 LEFT
+//            joystick_state = 2;
+//            break;
+//        case 0x08: // P3.3 TOP
+//            joystick_state = 3;
+//            break;
+//        case 0x0A: // P3.4 RIGHT
+//            joystick_state = 4;
+//            break;
+//        case 0x0C: // P3.5 BUTTON
+//            joystick_state = 5;
+//            break;
+//        default: break;
+//    }
+//
+//    P3IFG &= ~0x3E; // Esborra els flags d'interrupció
+//}
+
 #pragma vector=TIMER0_B0_VECTOR //Aquest és el nom important
 __interrupt void PORT0_ISR (void)
 {
