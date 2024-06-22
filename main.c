@@ -21,6 +21,10 @@ uint8_t a;
 uint16_t conversion_complete;
 uint16_t resultat_ADC;
 uint16_t resultat_ADC_promitg;
+uint16_t resultet;
+
+uint16_t J_right;
+uint16_t J_bot;
 //LCD
 uint8_t  Array_LCD[8];//VARIABLE ENCARREGUADA DE ENVIA LES TRAMES I2C PER CONFIGURAT LCD
 char  test_LCD[18];   //CARACTERS A REPRESENTAR EN EL DISPLAY
@@ -38,6 +42,7 @@ uint32_t contador_ms;//NUMERO DE CICLES NECESSARIS PER GENERAR 1MS PER UN SMLCK 
 uint16_t timer_capture;
 uint32_t contador_us;
 uint16_t ultrasound;
+uint8_t update_ultrasound;
 
 
 //GPIO
@@ -57,7 +62,7 @@ void init_GPIO(void){ //INICIALITZACIÓ DELS GPIOS
     P5DIR  |= 0X04;   //S'ESPECIFICA COM A OUTPUT
     P5OUT  =  0X00;    //LES SORTIDES S'ESPECIFIQUEN A 0
 
-    //PORT P3 (P3.1 (BOTTOM)/P3.2(LEFT)/P3.3(TOP)/P3.4(RIGHT)/P3.5(BOTON)
+    //PORT P3 (P3.1 (BOTTOM)/P3.2(LEFT)/P3.5(BOTON))
     P3SEL0 &= ~0X3E;   //Especifica P3.1 a P3.5 com a GPIO
     P3SEL1 &= ~0X3E;
     P3DIR  &= ~0X3E;   //S'especifica com a input
@@ -75,10 +80,10 @@ void init_GPIO(void){ //INICIALITZACIÓ DELS GPIOS
     P5DIR  |=0X30; //S'ESPECIFICA COM A OUTPUT
     P5OUT  =0X00;  // LES SORTIDES S'ESPECIFIQUEN A 0
 
-    //PORT 2 (P2.0) TRIGGER;
-    P2SEL0 &=~0X01;
-    P2SEL0 &=~0X01;
-    P2DIR |=0X01;
+    //PORT 2 (P2.0) TRIGGER/P2.2 BOT /P2.3 RIGHT;
+    P2SEL0 &=~0X0D;
+    P2SEL0 &=~0X0D;
+    P2DIR |=0X0D;
     P2OUT=0X00;
 
 }
@@ -98,21 +103,24 @@ void init_ADC(){
 
 }
 uint16_t mesura_ADC(uint8_t canal){
-    uint16_t mesura_complete;
+    volatile uint16_t mesura_complete;
     conversion_complete=0;
     if (canal==4)
         ADCMCTL0 |= ADCINCH_4;
-        ADCCTL0 |= ADCENC | ADCSC;
+
 
     if (canal==5)
         ADCMCTL0 |= ADCINCH_5;
-        ADCCTL0 |= ADCENC | ADCSC;
 
-    while(conversion_complete==1){
+    ADCCTL0 |= ADCENC | ADCSC;
+
+    while(conversion_complete!=1){
 
     }
     mesura_complete=ADCMEM0;
     ADCCTL0 &= ~ADCENC; //Desahabilitem l’ADC per poder canviar de canal
+    ADCMCTL0 &= ~0x0F; // Limpia los bits del canal
+
     return (mesura_complete);
 
 }
@@ -140,43 +148,63 @@ void init_timer(){ //timer de 1ms
 
     TB0CCR0=16000;    //CONFIGURA A 1mS CONVERSIO DE 16MHZ A 1MS ES EL NUMERO DE POLSOS PERQUE DURI 1ms
 
-//INICIALITZACIO TIMER TB2
 
-       TB2CTL|=TBSSEL_2; //S'agafa el rellotge SMCLK 16MHZ
-       TB2CCTL0|=CCIE_1; //Habilita la interupcio CCIE
-       TB2CCR0=16;    //CONFIGURA A 1mS CONVERSIO DE 16MHZ A 1MS ES EL NUMERO DE POLSOS PERQUE DURI 1ms
-
-    //INICIALITZACIÓ TIMER TB3.1
+    //INICIALITZACIÓ TIMER TB1.2
 
     //PIN FUNCIó P6.0-> TB1.2 CCIA Capture
 
     P2SEL0 |= 0X02;
     P2SEL1 &= ~0X02;
+    P2OUT=0X00;
     P6DIR  &= ~0X02;
 
     TB1CTL|=TBSSEL_1;
     TB1CCTL2|=CM_3|CCIS_0|CCIE_1|CAP_1|SCS_1; //S'OBSERVA EL VALOR DEL BIT DE CAPTURA
     capture_done=0;
+    //INICIALITZACIO TIMER TB2
+
+    TB2CTL|=TBSSEL_2; //S'agafa el rellotge SMCLK 16MHZ
+    TB2CCTL0|=CCIE_1; //Habilita la interupcio CCIE
+    TB2CCR0=16;    //CONFIGURA A 1mS CONVERSIO DE 16MHZ A 1MS ES EL NUMERO DE POLSOS PERQUE DURI 1ms
+   //INICIALITZACIÓ TIMER TB3
+    TB3CTL|=TBSSEL_2; //S'agafa el rellotge SMCLK 16MHZ
+    TB3CCTL0|=CCIE_1; //Habilita la interupcio CCIE
+    TB3CCR0=160000;    //CONFIGURA A 1mS CONVERSIO DE 16MHZ A 1MS ES EL NUMERO DE POLSOS PERQUE DURI 1ms
+
+
+}
+
+void crono_timer(){
+    TB3CTL|=MC_1;             //S'habilita mode UP
 
 }
 
 uint16_t captura_timer(){
     uint16_t timer;
     capture_done=0;
-    TB1R=0X0000;
-    TB1CCTL2|=CM_3;
+//    TB1R=0X0000;
+//    TB1CCTL2|=CM_3|CAP_1;
     TB1CTL|=MC_2;
 
-    while(capture_done==0){
 
+    while(capture_done==0){
+        __no_operation(); // Espera activa
     }
     timer=TB1CCR2;
-    TB1CTL &=~MC_2;
-    TB1CCTL2&=~CM_3;
+
+    TB1CTL|=TBCLR;
+    TB1CCTL2&=~COV_1;
+
+
+//    TB1CCTL2&=CM_0;
+
+
 
 
     return(timer);
 }
+
+
 
 uint16_t ultrasons(){
     uint16_t trimer1;
@@ -184,22 +212,27 @@ uint16_t ultrasons(){
     uint16_t temps_obstacle;
     uint16_t distancia;
 
+    //CHECK CAPTURA
 
 
-    //INICIALITZACIO ULTRASONS
-    P2OUT=0X00;
-    delay_us(1);
-    P2OUT^=0X01;
+    //INICIALITZACIO ULTRASONS COMPROVACIO RESULTAT
+    P2OUT|=0X01;
     delay_us(1);
     P2OUT^=0X01;
 
     trimer1=captura_timer();
+
     trimer2=captura_timer();
-    temps_obstacle=trimer2;
+
+//
+    distancia=33100/32000;
+    distancia=distancia*trimer2/2;
+//    distancia=distancia*343/2;
 //    temps_obstacle=temps_obstacle/2*32000;
 //    distancia=331*temps_obstacle;
 //    return(distancia);
-      return(temps_obstacle);
+    return(distancia);
+
 
 
 
@@ -223,6 +256,7 @@ void delay_us(uint32_t temps){
     contador_us=0;            //inicialment s'inicialitza a 0
     TB2CTL |= TBCLR; // Limpiar el contador
     TB2CTL|=MC_1;             //S'habilita mode UP
+
 
     while(temps>contador_us){ //fins que s'hagui fet mes que "temps" de  interupcions surt del bucle
     }
@@ -297,6 +331,19 @@ void move_cursor(uint8_t position){ //1r linia va de 0x00//0x0F  2n linia //0X28
       delay(10);
 }
 
+void Menu_moniterització(){
+
+    delay(10);
+    longitud = sprintf(test_LCD, "@ DIR=N    VEL=%d",Array_motor[2]);
+    I2C_send(0x3E, test_LCD, longitud);
+    delay(10);
+    move_line();
+    delay(10);
+    longitud = sprintf(test_LCD, "@ I=x/x  Dist= ",Array_motor[2]);
+    I2C_send(0x3E, test_LCD, longitud);
+    move_cursor(0x00);
+}
+
 
 // ROBOT
 
@@ -337,6 +384,8 @@ void main(void)
        init_ADC();
        resultat_ADC=0;
        counter=0;
+       joystick_state=0;
+       update_ultrasound=0;
 
     __enable_interrupt();
 //    while(1){
@@ -362,67 +411,99 @@ void main(void)
 //    leds_RGB(1,1);
     //TEST ROBOT
 
+//    while(1){
 
-    while(1){
+//          delay(100);
+  //        resultat_ADC=meas_ADC(5,10);;
+//          resultat_ADC_promitg=meas_ADC(5,10);
+//          resultat_ADC= mesura_ADC(4);
+//          delay(100);
 
-        resultat_ADC=ultrasons();
 
 
-    }
-    joystick_state=50;
+//      }
+
+//    delay(1000);
+//    while(1){
+//        delay(100);
+//        resultat_ADC=ultrasons();
+//        delay(100);
+
+
+
+//    }//
+
+
+    //ES CREA EL MENU DE MONITERITZACIÓ
     init_LCD();
-    delay(10);
-    longitud = sprintf(test_LCD, "@DIR=N VEL=%d",Array_motor[2]);
-    I2C_send(0x3E, test_LCD, longitud);
+    Menu_moniterització();
+    crono_timer();
 
 
 
-
-    while(1){
-
-        delay(1000);
-//        resultat_ADC=meas_ADC(5,10);;
-//        resultat_ADC_promitg=meas_ADC(4,10);
-          resultat_ADC_promitg=mesura_ADC(4);
-          resultat_ADC= mesura_ADC(5);
-        delay(1000);
-
-
-
-    }
-
+//
     while (1){
+
+
+
+        if(update_ultrasound){
+            ultrasound=ultrasons();
+            move_cursor(0x35);
+            delay(10);
+            longitud = sprintf(test_LCD, "@    ",ultrasound);
+            I2C_send(0x3E, test_LCD, longitud);
+            move_cursor(0x35);
+            delay(10);
+            longitud = sprintf(test_LCD, "@%d",ultrasound);
+            I2C_send(0x3E, test_LCD, longitud);
+            delay(10);
+            move_cursor(0x00);
+            update_ultrasound=0;
+
+        }
+
+
+
+        J_right=mesura_ADC(5);
+        delay(10);
+        J_bot=mesura_ADC(4);
+
+
+
 
 
         switch (joystick_state) {
         case 0:
             delay(20);
-            mov_motor(0x01, 0x00, 0x01, 0x00);
-            move_cursor(0x0A);
+//            mov_motor(0x01, 0x00, 0x01, 0x00);
+            move_cursor(0x0E);
             delay(10);
             longitud = sprintf(test_LCD, "@%d",Array_motor[2]);
             I2C_send(0x3E, test_LCD, longitud);
             delay(10);
-            move_cursor(0x04);
+            move_cursor(0x05);
             delay(10);
             longitud = sprintf(test_LCD,"@N");
             I2C_send(0x3E, test_LCD, longitud);
             delay(10);
             move_cursor(0x00);
 
+
+
+
             break;
 
 
             case 1: // TOP
                 delay(20);
-                mov_motor(0x01, 0x20, 0x01, 0x20);
+//                mov_motor(0x01, 0x20, 0x01, 0x20);
                 delay(10);
-                move_cursor(0x0A);
+                move_cursor(0x0E);
                 delay(10);
                 longitud = sprintf(test_LCD, "@%d",Array_motor[2]);
                 I2C_send(0x3E, test_LCD, longitud);
                 delay(10);
-                move_cursor(0x04);
+                move_cursor(0x05);
                 delay(10);
                 longitud = sprintf(test_LCD,"@T");
                 I2C_send(0x3E, test_LCD, longitud);
@@ -431,41 +512,52 @@ void main(void)
 
                 break;
             case 2: // LEFT
-                                        delay(20);
-                                        mov_motor(0x01, 0x00, 0x01, 0x20);
-                                         move_cursor(0x0A);
-                                         delay(10);
-                                         longitud = sprintf(test_LCD, "@%d",Array_motor[2]);
-                                         I2C_send(0x3E, test_LCD, longitud);
-                                         delay(10);
-                                         move_cursor(0x04);
-                                         delay(10);
-                                         longitud = sprintf(test_LCD,"@L");
-                                         I2C_send(0x3E, test_LCD, longitud);
-                                         delay(10);
-                                         move_cursor(0x00);
+                    delay(20);
+//                    mov_motor(0x01, 0x00, 0x01, 0x20);
+                    move_cursor(0x0E);
+                    delay(10);
+                    longitud = sprintf(test_LCD, "@%d",Array_motor[1]);
+                    I2C_send(0x3E, test_LCD, longitud);
+                    delay(10);
+                    move_cursor(0x05);
+                    delay(10);
+                    longitud = sprintf(test_LCD,"@L");
+                    I2C_send(0x3E, test_LCD, longitud);
+                    delay(10);
+                    move_cursor(0x00);
 
 
                 break;
-            case 3: // TOP
-                move_cursor(0x0B);
-                                                     delay(20);
-                                                     longitud = sprintf(test_LCD, "%d",Array_motor[2]);
-                                                     I2C_send(0x3E, test_LCD, longitud);
-                                                     delay(10);
-                                                     move_cursor(0x04);
-                                                     delay(10);
-                                                     longitud = sprintf(test_LCD,"T");
-                                                     I2C_send(0x3E, test_LCD, longitud);
-                                                     delay(10);
-                                                     move_cursor(0x00);
+            case 3: // BOT
+                delay(20);
+//              mov_motor(0x02, 0x20, 0x02, 0x20);
+                move_cursor(0x0E);
+                delay(10);
+                longitud = sprintf(test_LCD, "@%d",Array_motor[2]);
+                I2C_send(0x3E, test_LCD, longitud);
+                delay(10);
+                move_cursor(0x05);
+                delay(10);
+                longitud = sprintf(test_LCD,"@B");
+                I2C_send(0x3E, test_LCD, longitud);
+                delay(10);
+                move_cursor(0x00);
 
                 break;
             case 4: // RIGHT
+                delay(20);
+//                mov_motor(0x01, 0x20, 0x01, 0x00);
+                move_cursor(0x0E);
                 delay(10);
-                longitud = sprintf(test_LCD, "@RIGHT \n ");
+                longitud = sprintf(test_LCD, "@%d",Array_motor[2]);
                 I2C_send(0x3E, test_LCD, longitud);
                 delay(10);
+                move_cursor(0x05);
+                delay(10);
+                longitud = sprintf(test_LCD,"@R");
+                I2C_send(0x3E, test_LCD, longitud);
+                delay(10);
+                move_cursor(0x00);
 
                 break;
             case 5: // BUTTON
@@ -484,7 +576,7 @@ void main(void)
     while (1) {
         // Processar l'estat del joystick
 
-
+        delay(100);
 
               switch (joystick_state) {
               case 0:
@@ -510,8 +602,8 @@ void main(void)
                       longitud = sprintf(test_LCD, "@LEFT \n ");
                       I2C_send(0x3E, test_LCD, longitud);
                       delay(10);
-                      mov_motor(0x01, 0x20, 0x01, 0x00);
-                      joystick_state = 50;
+//                      mov_motor(0x01, 0x20, 0x01, 0x00);
+                      joystick_state = 2;
                       break;
                   case 3: // TOP
                       delay(10);
@@ -588,10 +680,9 @@ __interrupt void port3_ISR(void)
 
 
 joystick_state=0x00;
-uint8_t pulsed;
 uint16_t vector_flag=P3IV;
 P3IE=0X00;
-P3IES^=0X3E;
+
 joystick_state=0x00;
 
 
@@ -601,14 +692,17 @@ switch(vector_flag){
     case 0x00:break;
     case 0x02:break;
 
-    case 0x04:                      //P3.1 BOTTOM
+    case 0x04:                      //P3.1 TOP
         P3_Input=P3IN & BIT1;
              if(P3_Input==0){
                         joystick_state=1;
+                        P3IES&=~BIT1;
                     }
                     else {
                         joystick_state=0;
+                        P3IES|=BIT1;
                     }
+
 
         break;
 
@@ -616,10 +710,13 @@ switch(vector_flag){
         P3_Input=P3IN & BIT2; //P3.2 LEFT
         if(P3_Input==0){
                    joystick_state=2;
+                   P3IES&=~BIT2;
                }
                else {
                    joystick_state=0;
+                   P3IES|=BIT2;
                }
+
 
         break;
 
@@ -706,28 +803,82 @@ __interrupt void PORT1_ISR (void)
 __interrupt void TIMER0_B1_ISR (void)
 {
 
-    capture_done=1;
-    TB1CCTL2&=~CCIFG;
+
+    if( TB1CCTL2&CCIFG==1){
+        if(TB1CCR2==1){
+            capture_done=0;
+        }
+        else{
+            capture_done=1;
+        }
+
+        TB1CCTL2&=~CCIFG;
+
+    }
+
+
+
 
 
 
 /* El que volem fer a la rutina datenció dInterrupció */
 }
 
+#pragma vector=TIMER3_B0_VECTOR //Aquest és el nom important
+__interrupt void TB30_ISR (void)
+{
+uint8_t comptador;
+
+if(comptador==10){
+update_ultrasound=1;
+}
+
+
+J_right=J_right*3;
+J_right=J_right/4096;
+
+J_bot=J_bot*3;
+J_bot=J_bot/4096;
+
+if(J_right>1)
+         {
+           joystick_state=4;
+         }
+else if(J_bot>1)
+       {
+           joystick_state=3;
+       }
+else if(J_bot && J_right)
+       {
+           joystick_state=0;
+       }
+else   {
+           joystick_state=joystick_state;
+       }
+
+TB2CCTL0&=~CCIFG;
+/* El que volem fer a la rutina datenció dInterrupció */
+}
+
 #pragma vector=ADC_VECTOR
 __interrupt void ADC_ISR(void)
 {
-    uint8_t vector_flag=ADCIV0;
+    uint16_t vector_flag=ADCIV;
 
     switch(vector_flag){
 
-    case 0x00: break;
-    case 0x02:break;
-    case 0x04:break;
-    case 0x06: break;
-    case 0x08: break;
-    case 0x0A: break;
-    case 0x0C:conversion_complete=1;
+    case 0x0000: break;
+    case 0x0002:break;
+    case 0x0004:break;
+    case 0x0006: break;
+    case 0x0008: break;
+    case 0x000A: break;
+    case 0x000C:
+        conversion_complete=1;
+
+        break;
+    default :break;
+
 
 
 
@@ -736,5 +887,7 @@ __interrupt void ADC_ISR(void)
 
 
 }
+
+ADCIFG&=0x0000;
 }
 
