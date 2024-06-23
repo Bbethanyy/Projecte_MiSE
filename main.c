@@ -12,6 +12,14 @@
 
 //VARIABLES
 
+
+//MODO
+
+uint8_t Modo;
+uint8_t Number_moni;
+char M[4];
+uint8_t  Menu_position;
+
 //MOTOR
 uint8_t Array_motor[5]; //VARIABLE ENCARREGUADA DE ENVIA LES TRAMES I2C AL MOTOR
 uint8_t a;
@@ -20,11 +28,15 @@ uint8_t a;
 //ADC
 uint16_t conversion_complete;
 uint16_t resultat_ADC;
-uint16_t resultat_ADC_promitg;
-uint16_t resultet;
+uint16_t ilum1;
+uint16_t ilum2;
+uint8_t update_ADC;
 
+//JOYSTICK
 uint16_t J_right;
 uint16_t J_bot;
+
+
 //LCD
 uint8_t  Array_LCD[8];//VARIABLE ENCARREGUADA DE ENVIA LES TRAMES I2C PER CONFIGURAT LCD
 char  test_LCD[18];   //CARACTERS A REPRESENTAR EN EL DISPLAY
@@ -43,6 +55,7 @@ uint16_t timer_capture;
 uint32_t contador_us;
 uint16_t ultrasound;
 uint8_t update_ultrasound;
+uint8_t comptador;
 
 
 //GPIO
@@ -62,12 +75,13 @@ void init_GPIO(void){ //INICIALITZACIÓ DELS GPIOS
     P5DIR  |= 0X04;   //S'ESPECIFICA COM A OUTPUT
     P5OUT  =  0X00;    //LES SORTIDES S'ESPECIFIQUEN A 0
 
-    //PORT P3 (P3.1 (BOTTOM)/P3.2(LEFT)/P3.5(BOTON))
+    //PORT P3 (P3.1 (BOTTOM)/P3.2(LEFT)/P3.5(BOTON)//P3.6->DRETA)
     P3SEL0 &= ~0X3E;   //Especifica P3.1 a P3.5 com a GPIO
     P3SEL1 &= ~0X3E;
     P3DIR  &= ~0X3E;   //S'especifica com a input
     P3REN  |= 0X3E;    //Habilitar resistencies pull up
     P3OUT  |= 0X3E;    //pull up
+
 
     P3IES  |= 0x3E;
     P3IFG  &=~ 0x3E;   //Creal interrupt flags
@@ -339,12 +353,22 @@ void Menu_moniterització(){
     delay(10);
     move_line();
     delay(10);
-    longitud = sprintf(test_LCD, "@ I=x/x  Dist= ",Array_motor[2]);
+    longitud = sprintf(test_LCD, "@I=        Dis= ",Array_motor[2]);
     I2C_send(0x3E, test_LCD, longitud);
     move_cursor(0x00);
 }
 
-
+void Menu_inicial(){
+    delay(10);
+      longitud = sprintf(test_LCD, "@ CONFIG  MANUAL");
+      I2C_send(0x3E, test_LCD, longitud);
+      delay(10);
+      move_line();
+      delay(10);
+      longitud = sprintf(test_LCD, "@ LINE     DIST ");
+      I2C_send(0x3E, test_LCD, longitud);
+      move_cursor(0x00);
+}
 // ROBOT
 
 //LEDS
@@ -386,6 +410,10 @@ void main(void)
        counter=0;
        joystick_state=0;
        update_ultrasound=0;
+       comptador=0;
+       Modo=0;
+       Number_moni=0;
+       Menu_position=1;
 
     __enable_interrupt();
 //    while(1){
@@ -436,7 +464,7 @@ void main(void)
 
     //ES CREA EL MENU DE MONITERITZACIÓ
     init_LCD();
-    Menu_moniterització();
+
     crono_timer();
 
 
@@ -445,31 +473,87 @@ void main(void)
     while (1){
 
 
+        switch(Modo){
 
-        if(update_ultrasound){
-            ultrasound=ultrasons();
-            move_cursor(0x35);
-            delay(10);
-            longitud = sprintf(test_LCD, "@    ",ultrasound);
-            I2C_send(0x3E, test_LCD, longitud);
-            move_cursor(0x35);
-            delay(10);
-            longitud = sprintf(test_LCD, "@%d",ultrasound);
-            I2C_send(0x3E, test_LCD, longitud);
-            delay(10);
-            move_cursor(0x00);
-            update_ultrasound=0;
+
+        case 0x00:
+            if(Number_moni==0){
+                Menu_inicial();
+                Number_moni=1;
+            }
+
+
+
+
+            if(joystick_state==2){
+                move_cursor(0x28);
+                delay(10);
+                longitud = sprintf(test_LCD, "@ ");
+                I2C_send(0x3E, test_LCD, longitud);
+                delay(10);
+                move_cursor(0x00);
+                delay(10);
+                longitud = sprintf(test_LCD, "@ ");
+                I2C_send(0x3E, test_LCD, longitud);
+                delay(10);
+                move_cursor(0x31);
+                delay(10);
+                longitud = sprintf(test_LCD, "@ ");
+                I2C_send(0x3E, test_LCD, longitud);
+                delay(10);
+                move_cursor(0x08);
+                delay(10);
+                longitud = sprintf(test_LCD, "@ ");
+                I2C_send(0x3E, test_LCD, longitud);
+                delay(10);
+
+
+                switch(Menu_position){
+
+                case 1:
+                    move_cursor(0x31);
+                    break;
+                case 2:
+                    move_cursor(0x28);
+                    break;
+                case 3:
+                    move_cursor(0x08);
+                    break;
+                case 4:
+                    move_cursor(0x00);
+                    Menu_position=0;
+                    break;
+                default: break;
+
+
+
+                }
+
+                delay(10);
+                longitud = sprintf(test_LCD, "@-");
+                I2C_send(0x3E, test_LCD, longitud);
+                delay(10);
+
+
+                Menu_position=Menu_position+1;
+
+
+                }
+
+
+            break;
+        case 0x01:
+            if(Number_moni==0){
+                Menu_moniterització();
+                Number_moni=1;
+            }
+            break;
+
 
         }
 
 
-
-        J_right=mesura_ADC(5);
-        delay(10);
-        J_bot=mesura_ADC(4);
-
-
-
+        if(Modo>0){
 
 
         switch (joystick_state) {
@@ -487,10 +571,6 @@ void main(void)
             I2C_send(0x3E, test_LCD, longitud);
             delay(10);
             move_cursor(0x00);
-
-
-
-
             break;
 
 
@@ -565,12 +645,86 @@ void main(void)
                 longitud = sprintf(test_LCD, "@BOTTOM \n ");
                 I2C_send(0x3E, test_LCD, longitud);
                 delay(10);
+                Number_moni=0;
+                Modo=0;
 
                 break;
             default:
                 break;
         }
 
+
+        if (update_ADC){
+            J_right=mesura_ADC(5);
+            ilum1=meas_ADC(5,10)/10;
+
+            J_bot=mesura_ADC(4);
+            ilum2=meas_ADC(4,10)/10;
+
+            J_right=J_right*3;
+            J_right=J_right/4096;
+
+            J_bot=J_bot*3;
+            J_bot=J_bot/4096;
+
+//          if((ilum1<120) |ilum2<120){
+//            delay(10);
+//            leds_RGB(1,1);
+//          }
+//          else{
+//            leds_RGB(0,0);
+//        }
+
+            if(J_right>1)
+                 {
+                   joystick_state=4;
+                 }
+            else if(J_bot>1)
+               {
+                   joystick_state=3;
+               }
+        else if((J_bot && J_right)==1)
+               {
+                   joystick_state=0;
+               }
+        else   {
+                   joystick_state=joystick_state;
+               }
+        update_ADC=0;
+        delay(10);
+        move_cursor(0x3A);
+        delay(10);
+        longitud = sprintf(test_LCD, "@       ");
+        I2C_send(0x3E, test_LCD, longitud);
+        delay(10);
+        delay(10);
+        move_cursor(0x3A);
+        longitud = sprintf(test_LCD, "@%d/%d",ilum1,ilum2);
+        I2C_send(0x3E, test_LCD, longitud);
+        delay(10);
+        move_cursor(0x00);
+
+        }
+
+
+
+        if(update_ultrasound){
+            ultrasound=ultrasons();
+            move_cursor(0x35);
+            delay(10);
+            longitud = sprintf(test_LCD, "@    ",ultrasound);
+            I2C_send(0x3E, test_LCD, longitud);
+            move_cursor(0x35);
+            delay(10);
+            longitud = sprintf(test_LCD, "@%d",ultrasound);
+            I2C_send(0x3E, test_LCD, longitud);
+            delay(10);
+            move_cursor(0x00);
+            update_ultrasound=0;
+
+        }
+
+    }
     }
 
     while (1) {
@@ -827,35 +981,15 @@ __interrupt void TIMER0_B1_ISR (void)
 #pragma vector=TIMER3_B0_VECTOR //Aquest és el nom important
 __interrupt void TB30_ISR (void)
 {
-uint8_t comptador;
+
 
 if(comptador==10){
-update_ultrasound=1;
+    update_ADC=1;
+    comptador=0;
+//    update_ultrasound=1;
 }
 
-
-J_right=J_right*3;
-J_right=J_right/4096;
-
-J_bot=J_bot*3;
-J_bot=J_bot/4096;
-
-if(J_right>1)
-         {
-           joystick_state=4;
-         }
-else if(J_bot>1)
-       {
-           joystick_state=3;
-       }
-else if(J_bot && J_right)
-       {
-           joystick_state=0;
-       }
-else   {
-           joystick_state=joystick_state;
-       }
-
+comptador ++;
 TB2CCTL0&=~CCIFG;
 /* El que volem fer a la rutina datenció dInterrupció */
 }
