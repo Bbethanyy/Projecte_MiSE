@@ -17,8 +17,16 @@
 
 uint8_t Modo;
 uint8_t Number_moni;
-char M[4];
+uint8_t Mod_cursor;
+uint8_t modu_cursor;
 uint8_t  Menu_position;
+uint8_t Menuu_position;
+
+//CONFIG
+
+uint8_t config_velocitat;
+uint8_t config_RGB;
+
 
 //MOTOR
 uint8_t Array_motor[5]; //VARIABLE ENCARREGUADA DE ENVIA LES TRAMES I2C AL MOTOR
@@ -55,7 +63,7 @@ uint16_t timer_capture;
 uint32_t contador_us;
 uint16_t ultrasound;
 uint8_t update_ultrasound;
-uint8_t comptador;
+uint16_t comptador;
 
 
 //GPIO
@@ -75,7 +83,7 @@ void init_GPIO(void){ //INICIALITZACIÓ DELS GPIOS
     P5DIR  |= 0X04;   //S'ESPECIFICA COM A OUTPUT
     P5OUT  =  0X00;    //LES SORTIDES S'ESPECIFIQUEN A 0
 
-    //PORT P3 (P3.1 (BOTTOM)/P3.2(LEFT)/P3.5(BOTON)//P3.6->DRETA)
+    //PORT P3 (P3.1 (BOTTOM)/P3.2(LEFT)/P3.5(BOTON)//)
     P3SEL0 &= ~0X3E;   //Especifica P3.1 a P3.5 com a GPIO
     P3SEL1 &= ~0X3E;
     P3DIR  &= ~0X3E;   //S'especifica com a input
@@ -85,7 +93,7 @@ void init_GPIO(void){ //INICIALITZACIÓ DELS GPIOS
 
     P3IES  |= 0x3E;
     P3IFG  &=~ 0x3E;   //Creal interrupt flags
-    P3IE   = 0X3E;    //Habilitar interruptors
+    P3IE   = 0X26;    //Habilitar interruptors
 
 
     //PORT P4 (4.4//4.5)
@@ -183,7 +191,7 @@ void init_timer(){ //timer de 1ms
    //INICIALITZACIÓ TIMER TB3
     TB3CTL|=TBSSEL_2; //S'agafa el rellotge SMCLK 16MHZ
     TB3CCTL0|=CCIE_1; //Habilita la interupcio CCIE
-    TB3CCR0=160000;    //CONFIGURA A 1mS CONVERSIO DE 16MHZ A 1MS ES EL NUMERO DE POLSOS PERQUE DURI 1ms
+    TB3CCR0=16000;    //CONFIGURA A 1mS CONVERSIO DE 16MHZ A 1MS ES EL NUMERO DE POLSOS PERQUE DURI 1ms
 
 
 }
@@ -202,7 +210,9 @@ uint16_t captura_timer(){
 
 
     while(capture_done==0){
-        __no_operation(); // Espera activa
+       if((TB1CCTL2&COV_1)==COV_1){
+           capture_done=1;
+       }
     }
     timer=TB1CCR2;
 
@@ -346,26 +356,41 @@ void move_cursor(uint8_t position){ //1r linia va de 0x00//0x0F  2n linia //0X28
 }
 
 void Menu_moniterització(){
+    move_cursor(0x00);
 
     delay(10);
-    longitud = sprintf(test_LCD, "@ DIR=N    VEL=%d",Array_motor[2]);
+    longitud = sprintf(test_LCD, "@ DIR=N   VEL=%d",Array_motor[2]);
     I2C_send(0x3E, test_LCD, longitud);
     delay(10);
-    move_line();
+    move_cursor(0x28);
     delay(10);
-    longitud = sprintf(test_LCD, "@I=        Dis= ",Array_motor[2]);
+    longitud = sprintf(test_LCD, "@I=       Dis= ",Array_motor[2]);
     I2C_send(0x3E, test_LCD, longitud);
     move_cursor(0x00);
 }
 
 void Menu_inicial(){
+    move_cursor(0x00);
     delay(10);
       longitud = sprintf(test_LCD, "@ CONFIG  MANUAL");
       I2C_send(0x3E, test_LCD, longitud);
       delay(10);
-      move_line();
+      move_cursor(0x28);
       delay(10);
-      longitud = sprintf(test_LCD, "@ LINE     DIST ");
+      longitud = sprintf(test_LCD, "@ ILUM     DIST ");
+      I2C_send(0x3E, test_LCD, longitud);
+      move_cursor(0x00);
+}
+
+void Menu_config(){
+    move_cursor(0x00);
+    delay(10);
+      longitud = sprintf(test_LCD, "@ VELOCITAT=%d",config_velocitat);
+      I2C_send(0x3E, test_LCD, longitud);
+      delay(10);
+      move_cursor(0x28);
+      delay(10);
+      longitud = sprintf(test_LCD, "@ LED RGB=%d",config_RGB);
       I2C_send(0x3E, test_LCD, longitud);
       move_cursor(0x00);
 }
@@ -413,7 +438,13 @@ void main(void)
        comptador=0;
        Modo=0;
        Number_moni=0;
+       Mod_cursor=0;
        Menu_position=1;
+       Menuu_position=1;
+       config_RGB=0;
+       config_velocitat=0;
+       update_ultrasound=1;
+       update_ADC=1;
 
     __enable_interrupt();
 //    while(1){
@@ -478,49 +509,39 @@ void main(void)
 
         case 0x00:
             if(Number_moni==0){
+                joystick_state=0;
+                delete_LCD();
                 Menu_inicial();
+                delay(1000);
                 Number_moni=1;
             }
 
 
-
+            delay(100);
 
             if(joystick_state==2){
-                move_cursor(0x28);
+
+                move_cursor(Mod_cursor);
                 delay(10);
                 longitud = sprintf(test_LCD, "@ ");
                 I2C_send(0x3E, test_LCD, longitud);
                 delay(10);
-                move_cursor(0x00);
-                delay(10);
-                longitud = sprintf(test_LCD, "@ ");
-                I2C_send(0x3E, test_LCD, longitud);
-                delay(10);
-                move_cursor(0x31);
-                delay(10);
-                longitud = sprintf(test_LCD, "@ ");
-                I2C_send(0x3E, test_LCD, longitud);
-                delay(10);
-                move_cursor(0x08);
-                delay(10);
-                longitud = sprintf(test_LCD, "@ ");
-                I2C_send(0x3E, test_LCD, longitud);
-                delay(10);
+
 
 
                 switch(Menu_position){
 
                 case 1:
-                    move_cursor(0x31);
+                    Mod_cursor=0x31;
                     break;
                 case 2:
-                    move_cursor(0x28);
+                    Mod_cursor=0x28;
                     break;
                 case 3:
-                    move_cursor(0x08);
+                    Mod_cursor=0x08;
                     break;
                 case 4:
-                    move_cursor(0x00);
+                    Mod_cursor=0x00;
                     Menu_position=0;
                     break;
                 default: break;
@@ -529,6 +550,7 @@ void main(void)
 
                 }
 
+                move_cursor(Mod_cursor);
                 delay(10);
                 longitud = sprintf(test_LCD, "@-");
                 I2C_send(0x3E, test_LCD, longitud);
@@ -539,27 +561,148 @@ void main(void)
 
 
                 }
+            else if(joystick_state==5){
+                joystick_state=0;
+                Number_moni=0;
+
+                switch(Menu_position){
+
+                                case 1:
+                                    Modo=1;
+                                    break;
+                                case 2:
+                                    Modo=4;
+                                    break;
+                                case 3:
+                                    Modo=3;
+                                    break;
+                                case 4:
+                                    Modo=2;
+                                    break;
+                                default: break;
 
 
-            break;
-        case 0x01:
+
+                                }
+            }
+        break;
+
+
+        case 1:
+                if(Number_moni==0){
+                            joystick_state=0;
+                            delete_LCD();
+                            Menu_config();
+                            delay(1000);
+                            Number_moni=1;
+                                    }
+                delay(100);
+                if (joystick_state==1){
+
+                            move_cursor(Mod_cursor);
+                            delay(10);
+                            longitud = sprintf(test_LCD, "@ ");
+                            I2C_send(0x3E, test_LCD, longitud);
+                            delay(10);
+                            switch(Menuu_position){
+                                case 1:
+                                    Mod_cursor=0x00;
+                                    break;
+                                case 2:
+                                    Mod_cursor=0x28;
+                                    Menuu_position=0;
+                                    break;
+                                }
+                            move_cursor(Mod_cursor);
+                            delay(10);
+                            longitud = sprintf(test_LCD, "@-");
+                            I2C_send(0x3E, test_LCD, longitud);
+                            delay(10);
+                            Menuu_position=Menuu_position+1;
+
+
+                        }
+                if(joystick_state==2){
+
+
+                    switch(Menuu_position){
+                        case 1:
+                            modu_cursor=0x31;
+
+                            config_RGB=config_RGB+1;
+                            if(config_RGB==8){
+                                config_RGB=0;
+                            }
+                            move_cursor(modu_cursor);
+                            delay(10);
+                            longitud = sprintf(test_LCD, "@    ");
+                            I2C_send(0x3E, test_LCD, longitud);
+                            delay(10);
+                            move_cursor(modu_cursor);
+                            delay(10);
+                            longitud = sprintf(test_LCD, "@%d    ",config_RGB);
+                            I2C_send(0x3E, test_LCD, longitud);
+                            delay(10);
+
+                            break;
+                        case 2:
+
+                            modu_cursor=0x0B;
+                            config_velocitat=config_velocitat+10;
+                            if(config_velocitat==240){
+                                config_velocitat=0;
+                            }
+                            move_cursor(modu_cursor);
+                            delay(10);
+                            longitud = sprintf(test_LCD, "@%d    ",config_velocitat);
+                            I2C_send(0x3E, test_LCD, longitud);
+                            delay(10);
+
+                            break;
+                            }
+
+                    }
+                if(joystick_state==5){
+                    Menu_position=0;
+                    Modo=0;
+                    joystick_state=0;
+                    Number_moni=0;
+                }
+
+        break;
+
+
+
+
+
+
+
+        default:
+
             if(Number_moni==0){
+                joystick_state=0;
+                delete_LCD();
+                delay(10);
                 Menu_moniterització();
+                delay(1000);
                 Number_moni=1;
             }
+
+
             break;
 
 
         }
 
 
-        if(Modo>0){
+        if(Modo>1){
 
 
         switch (joystick_state) {
         case 0:
             delay(20);
-//            mov_motor(0x01, 0x00, 0x01, 0x00);
+            mov_motor(0x01, 0x00, 0x01, 0x00);
+
             move_cursor(0x0E);
             delay(10);
             longitud = sprintf(test_LCD, "@%d",Array_motor[2]);
@@ -576,11 +719,11 @@ void main(void)
 
             case 1: // TOP
                 delay(20);
-//                mov_motor(0x01, 0x20, 0x01, 0x20);
+                mov_motor(0x01, config_velocitat, 0x01, config_velocitat);
                 delay(10);
                 move_cursor(0x0E);
                 delay(10);
-                longitud = sprintf(test_LCD, "@%d",Array_motor[2]);
+                longitud = sprintf(test_LCD, "@%d",Array_motor[1]);
                 I2C_send(0x3E, test_LCD, longitud);
                 delay(10);
                 move_cursor(0x05);
@@ -593,10 +736,10 @@ void main(void)
                 break;
             case 2: // LEFT
                     delay(20);
-//                    mov_motor(0x01, 0x00, 0x01, 0x20);
+                    mov_motor(0x01, 0x00, 0x01, config_velocitat);
                     move_cursor(0x0E);
                     delay(10);
-                    longitud = sprintf(test_LCD, "@%d",Array_motor[1]);
+                    longitud = sprintf(test_LCD, "@%d",Array_motor[2]);
                     I2C_send(0x3E, test_LCD, longitud);
                     delay(10);
                     move_cursor(0x05);
@@ -610,10 +753,10 @@ void main(void)
                 break;
             case 3: // BOT
                 delay(20);
-//              mov_motor(0x02, 0x20, 0x02, 0x20);
+                mov_motor(0x02, config_velocitat, 0x02, Array_motor[2]);
                 move_cursor(0x0E);
                 delay(10);
-                longitud = sprintf(test_LCD, "@%d",Array_motor[2]);
+                longitud = sprintf(test_LCD, "@%d",Array_motor[1]);
                 I2C_send(0x3E, test_LCD, longitud);
                 delay(10);
                 move_cursor(0x05);
@@ -626,10 +769,10 @@ void main(void)
                 break;
             case 4: // RIGHT
                 delay(20);
-//                mov_motor(0x01, 0x20, 0x01, 0x00);
+                mov_motor(0x01, config_velocitat, 0x01, 0x00);
                 move_cursor(0x0E);
                 delay(10);
-                longitud = sprintf(test_LCD, "@%d",Array_motor[2]);
+                longitud = sprintf(test_LCD, "@%d",Array_motor[1]);
                 I2C_send(0x3E, test_LCD, longitud);
                 delay(10);
                 move_cursor(0x05);
@@ -645,8 +788,12 @@ void main(void)
                 longitud = sprintf(test_LCD, "@BOTTOM \n ");
                 I2C_send(0x3E, test_LCD, longitud);
                 delay(10);
-                Number_moni=0;
+                Menu_position=0;
                 Modo=0;
+                joystick_state=0;
+
+                Number_moni=0;
+
 
                 break;
             default:
@@ -656,6 +803,7 @@ void main(void)
 
         if (update_ADC){
             J_right=mesura_ADC(5);
+
             ilum1=meas_ADC(5,10)/10;
 
             J_bot=mesura_ADC(4);
@@ -667,154 +815,90 @@ void main(void)
             J_bot=J_bot*3;
             J_bot=J_bot/4096;
 
-//          if((ilum1<120) |ilum2<120){
-//            delay(10);
-//            leds_RGB(1,1);
-//          }
-//          else{
-//            leds_RGB(0,0);
-//        }
+            if(Modo==2){
 
-            if(J_right>1)
-                 {
-                   joystick_state=4;
-                 }
-            else if(J_bot>1)
-               {
-                   joystick_state=3;
-               }
-        else if((J_bot && J_right)==1)
-               {
-                   joystick_state=0;
-               }
-        else   {
+                if(J_right>1)
+                     {
+                    joystick_state=4;
+                     }
+                else if(J_bot>1)
+                     {
+                        joystick_state=3;
+                     }
+                else if((J_bot && J_right)==1)
+                   {
+                       joystick_state=0;
+                   }
+                else
+                {
                    joystick_state=joystick_state;
-               }
-        update_ADC=0;
-        delay(10);
-        move_cursor(0x3A);
-        delay(10);
-        longitud = sprintf(test_LCD, "@       ");
-        I2C_send(0x3E, test_LCD, longitud);
-        delay(10);
-        delay(10);
-        move_cursor(0x3A);
-        longitud = sprintf(test_LCD, "@%d/%d",ilum1,ilum2);
-        I2C_send(0x3E, test_LCD, longitud);
-        delay(10);
-        move_cursor(0x00);
+                }
+            }
+            if(Modo==3){
+                if (ilum1>350){
+                    joystick_state=1;
+                    leds_RGB(config_RGB,0);
+                }
+                if(ilum2>350){
+                    joystick_state=2;
+                    leds_RGB(0,config_RGB);
+                }
+                else if((ilum1<350)& (ilum2<350)){
+                    joystick_state=0;
+                    leds_RGB(0,0);
+                }
+            }
+
+            if((Modo==3)|(Modo==4)){
+                delay(10);
+                move_cursor(0x3A);
+                delay(10);
+                longitud = sprintf(test_LCD, "@ ");
+                I2C_send(0x3E, test_LCD, longitud);
+                delay(100);
+                move_cursor(0x3A);
+                delay(10);
+                longitud = sprintf(test_LCD, "@%d/%d",ilum1,ilum2);
+                I2C_send(0x3E, test_LCD, longitud);
+                delay(10);
+
+
+        }
 
         }
 
 
 
         if(update_ultrasound){
+            delay(10);
             ultrasound=ultrasons();
+            delay(10);
             move_cursor(0x35);
             delay(10);
-            longitud = sprintf(test_LCD, "@    ",ultrasound);
+            longitud = sprintf(test_LCD, "@   ",ultrasound);
             I2C_send(0x3E, test_LCD, longitud);
+            delay(10);
             move_cursor(0x35);
             delay(10);
             longitud = sprintf(test_LCD, "@%d",ultrasound);
             I2C_send(0x3E, test_LCD, longitud);
             delay(10);
-            move_cursor(0x00);
-            update_ultrasound=0;
+            if(Modo==4){
+                if(ultrasound>5){
+                    joystick_state=1;
+                    leds_RGB(config_RGB,config_RGB);
+                }
+                else{
+                    joystick_state=2;
+                }
+            }
 
         }
 
     }
     }
 
-    while (1) {
-        // Processar l'estat del joystick
 
-        delay(100);
-
-              switch (joystick_state) {
-              case 0:
-                  delay(10);
-                  longitud = sprintf(test_LCD, "@HOLA COMO VA \n ");
-                  I2C_send(0x3E, test_LCD, longitud);
-                  delay(10);
-                  mov_motor(0x01, 0x00, 0x01, 0x00);
-                  joystick_state = 50; // Reinicia l'estat després de processar-lo
-                  break;
-
-
-                  case 1: // BOTTOM
-                      delay(10);
-                      longitud = sprintf(test_LCD, "@TOP \n ");
-                      I2C_send(0x3E, test_LCD, longitud);
-                      delay(10);
-                      mov_motor(0x01, 0x20, 0x01, 0x20);
-                      joystick_state = 50; // Reinicia l'estat després de processar-lo
-                      break;
-                  case 2: // LEFT
-                      delay(10);
-                      longitud = sprintf(test_LCD, "@LEFT \n ");
-                      I2C_send(0x3E, test_LCD, longitud);
-                      delay(10);
-//                      mov_motor(0x01, 0x20, 0x01, 0x00);
-                      joystick_state = 2;
-                      break;
-                  case 3: // TOP
-                      delay(10);
-                      longitud = sprintf(test_LCD, "@BOTTOM \n ");
-                      I2C_send(0x3E, test_LCD, longitud);
-                      delay(10);
-                      mov_motor(0x02, 0x20, 0x02, 0x20);
-                      joystick_state = 50;
-                      break;
-                  case 4: // RIGHT
-                      delay(10);
-                      longitud = sprintf(test_LCD, "@RIGHT \n ");
-                      I2C_send(0x3E, test_LCD, longitud);
-                      delay(10);
-                      mov_motor(0x01, 0x00, 0x01, 0x20);
-                      joystick_state = 50;
-                      break;
-                  case 5: // BUTTON
-                      delay(10);
-                      longitud = sprintf(test_LCD, "@BUTTON \n ");
-                      I2C_send(0x3E, test_LCD, longitud);
-                      delay(10);
-                      mov_motor(0x00, 0x00, 0x00, 0x00);
-                      joystick_state = 50;
-                      break;
-                  default:
-                      break;
-              }
-
-
-
-
-}
-
-    // Motor and LED test sequence
-                leds_RGB(1, 1);
-                mov_motor(0x01, 0x20, 0x01, 0x20);
-                delay(2000);
-                leds_RGB(2, 2);
-                mov_motor(0x02, 0x20, 0x02, 0x20);
-                delay(2000);
-                leds_RGB(3, 3);
-                mov_motor(0x01, 0x20, 0x00, 0x00);
-                delay(2000);
-                leds_RGB(4, 4);
-                mov_motor(0x00, 0x00, 0x01, 0x20);
-                delay(5000);
-                leds_RGB(0, 0);
-                mov_motor(0x00, 0x00, 0x01, 0x00);
-                delay(100);
-
-//    captura_timer(captura_temporitzador );
-//    while(1){
-//
-//
-//    }
-//
 //
 
 
@@ -833,12 +917,9 @@ __interrupt void port3_ISR(void)
 { //PORT P3 (P3.1 (BOTTOM)/P3.2(LEFT)/P3.3(TOP)/P3.4(RIGHT)/P3.5(BOTON)
 
 
-joystick_state=0x00;
+
 uint16_t vector_flag=P3IV;
-P3IE=0X00;
-
-joystick_state=0x00;
-
+P3IE&=~0X26;
 
 
 switch(vector_flag){
@@ -849,6 +930,7 @@ switch(vector_flag){
     case 0x04:                      //P3.1 TOP
         P3_Input=P3IN & BIT1;
              if(P3_Input==0){
+
                         joystick_state=1;
                         P3IES&=~BIT1;
                     }
@@ -863,6 +945,7 @@ switch(vector_flag){
     case 0x06:
         P3_Input=P3IN & BIT2; //P3.2 LEFT
         if(P3_Input==0){
+
                    joystick_state=2;
                    P3IES&=~BIT2;
                }
@@ -885,9 +968,11 @@ switch(vector_flag){
     case 0x0C:                   // P3.5 BOTON
         P3_Input=P3IN & BIT5;
                  if(P3_Input==0){
+                     P3IES&=~BIT5;
                      joystick_state=5;
                  }
                  else {
+                     P3IES|=BIT5;
                      joystick_state=0;
                  }
                  break;
@@ -897,7 +982,7 @@ switch(vector_flag){
 }
 
 P3IFG=0X00;
-P3IE    =0X3E;
+P3IE|=0X26;
 
 
 
@@ -981,15 +1066,33 @@ __interrupt void TIMER0_B1_ISR (void)
 #pragma vector=TIMER3_B0_VECTOR //Aquest és el nom important
 __interrupt void TB30_ISR (void)
 {
+uint16_t comptador2;
+    if((Modo==1)|(Modo==0)){
+        comptador=0;
+        comptador2=0;
+    }
 
 
-if(comptador==10){
-    update_ADC=1;
-    comptador=0;
-//    update_ultrasound=1;
+    if(comptador==60){
+        if(Modo>1){
+//            update_ADC=1;
+            comptador=0;
+//            update_ultrasound=1;
+
+        }
+    if (comptador2==1000){
+        if(Modo>1){
+        comptador2=0;
+//        update_ultrasound=1;
+        }
+    }
+
+
+
 }
 
 comptador ++;
+comptador2 ++;
 TB2CCTL0&=~CCIFG;
 /* El que volem fer a la rutina datenció dInterrupció */
 }
