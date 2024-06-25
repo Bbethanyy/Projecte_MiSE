@@ -15,17 +15,17 @@
 
 //MODO
 
-uint8_t Modo;
-uint8_t Number_moni;
-uint8_t Mod_cursor;
-uint8_t modu_cursor;
-uint8_t Menu_position;
-uint8_t Menuu_position;
+uint8_t Modo;  //INDICA EL MODE DEL ROBOT
+uint8_t Number_moni; //LIMITA A UNA VEGADA LA PANTALLA A GRAFICAR A CADA MODE
+uint8_t Mod_cursor;  //INDICA DE FORMA VISUAL ON ES TROBA SITUAT DEL MENU INICIAL 
+uint8_t modu_cursor;  //INDICA DE FORMA VISUAL ON ES TROBA SITUAT DEL MENU CONFIG
+uint8_t Menu_position; //INDICA EL CURSOR ON ES TROBA SITUAT DEL MENU INICIAL 
+uint8_t Menuu_position; //INDICA EL CURSOR ON ES TROBA SITUAT DEL MENU CONFIGURACIÓ
 
 //CONFIG
 
-uint8_t config_velocitat;
-uint8_t config_RGB;
+uint8_t config_velocitat;//VALOR VELOCITAT ESPECIFICAT EN LA CONFIGURACIÓ
+uint8_t config_RGB; //VALOR DEL LED ESPECIFICAT EN LA CONFIGURACIÓ
 
 
 //MOTOR
@@ -35,6 +35,7 @@ uint8_t a;
 
 //ADC
 uint16_t conversion_complete;
+//DIFERENTS MESURES FETES EN EL ADC
 uint16_t resultat_ADC;
 uint16_t ilum1;
 uint16_t ilum2;
@@ -57,13 +58,14 @@ uint8_t Array_led[2]; //VARIABLE ENCARREGUADA DE ENVIA LA TRAMA I2C DEL LCD
 
 //TIMER
 uint32_t captura_temporitzador;
-uint8_t  capture_done;
+uint8_t  capture_done;  //INDICA SI S'HA FET UNA CAPTURA
 uint32_t contador_ms;//NUMERO DE CICLES NECESSARIS PER GENERAR 1MS PER UN SMLCK 16MHZ
 uint16_t timer_capture;
-uint32_t contador_us;
-uint16_t ultrasound;
-uint8_t update_ultrasound;
-uint16_t comptador;
+uint32_t contador_us; //NUMERO DE CICLES NECESSARIS PER GENERAR 10us PER UN SMLCK 16MHZ
+//ULTRASONS
+uint16_t ultrasound; //DADE ON S'ALMACENA EL VALOR OBTINGUT DEL ULTRASONS
+uint8_t update_ultrasound; //ACTUALITZA EL ULTRASONS
+uint16_t comptador; //
 
 
 //GPIO
@@ -71,7 +73,7 @@ uint16_t comptador;
 uint8_t counter;
 uint8_t inputGP;
 uint8_t P3_Input;
-volatile uint8_t joystick_state = 0;
+volatile uint8_t joystick_state = 0; //INDICA I REPRESENTA EL MOVIMENT DEL MOTOR I SI S'ENVA EL MENU INICIAL
 
 
 void init_GPIO(void){ //INICIALITZACIÓ DELS GPIOS
@@ -124,7 +126,7 @@ void init_ADC(){
 
 
 }
-uint16_t mesura_ADC(uint8_t canal){
+uint16_t mesura_ADC(uint8_t canal){ //REALITZA UNA MESURA DEL ADC DEL CANAL ESPECIFICAT SINGLE CHANNEL SINGLE CONVERSION
     volatile uint16_t mesura_complete;
     conversion_complete=0;
     if (canal==4)
@@ -134,12 +136,12 @@ uint16_t mesura_ADC(uint8_t canal){
     if (canal==5)
         ADCMCTL0 |= ADCINCH_5;
 
-    ADCCTL0 |= ADCENC | ADCSC;
+    ADCCTL0 |= ADCENC | ADCSC; //INICIA LA CONVERSIO ADC I EL MOSTREIG
 
     while(conversion_complete!=1){
 
     }
-    mesura_complete=ADCMEM0;
+    mesura_complete=ADCMEM0; //VARIABLE ON S'ALMACENA EL VALOR DEL ADC
     ADCCTL0 &= ~ADCENC; //Desahabilitem l’ADC per poder canviar de canal
     ADCMCTL0 &= ~0x0F; // Limpia los bits del canal
 
@@ -147,7 +149,7 @@ uint16_t mesura_ADC(uint8_t canal){
 
 }
 
-uint16_t meas_ADC(uint8_t canal,uint8_t N_valors){
+uint16_t meas_ADC(uint8_t canal,uint8_t N_valors){ //VALOR PROMITG DE N MESURES DEL ADC
     uint16_t resultat;
     uint8_t i;
     i=0;
@@ -180,7 +182,7 @@ void init_timer(){ //timer de 1ms
     P2OUT=0X00;
     P6DIR  &= ~0X02;
 
-    TB1CTL|=TBSSEL_1;
+    TB1CTL|=TBSSEL_1; //ACLK CLOCK
     TB1CCTL2|=CM_3|CCIS_0|CCIE_1|CAP_1|SCS_1; //S'OBSERVA EL VALOR DEL BIT DE CAPTURA
     capture_done=0;
     //INICIALITZACIO TIMER TB2
@@ -201,7 +203,7 @@ void crono_timer(){
 
 }
 
-uint16_t captura_timer(){
+uint16_t captura_timer(){ //CAPTURA EL FLANC DE PUJADA I DE BAIXADA CONTINUAMENT EL TIMER ESTA ACTIVAT MODE CONTINOUS
     uint16_t timer;
     capture_done=0;
 //    TB1R=0X0000;
@@ -216,7 +218,7 @@ uint16_t captura_timer(){
     }
     timer=TB1CCR2;
 
-    TB1CTL|=TBCLR;
+    TB1CTL|=TBCLR; //ES RESETEJA EL VALOR INICIAL DLE COMPTATGE
     TB1CCTL2&=~COV_1;
 
 
@@ -230,7 +232,7 @@ uint16_t captura_timer(){
 
 
 
-uint16_t ultrasons(){
+uint16_t ultrasons(){ //VARIABLE ENCARREGUADA DE OBTINDRE LA DISTANCIA ALS OBSTACLES
     uint16_t trimer1;
     uint16_t trimer2;
     uint16_t temps_obstacle;
@@ -239,7 +241,7 @@ uint16_t ultrasons(){
     //CHECK CAPTURA
 
 
-    //INICIALITZACIO ULTRASONS COMPROVACIO RESULTAT
+    //INICIALITZACIO ULTRASONS TRIGGER
     P2OUT|=0X01;               //Activa el pin 0 del port 2
     delay_us(1);
     P2OUT^=0X01;
@@ -308,7 +310,7 @@ void init_LCD(){
     delay(10);
 
 }
-void delete_LCD(){
+void delete_LCD(){ //ELIMINA CONTINGUT DEL LCD
    delay(10);
    Array_LCD[0] = 0x00;       //Initcialitza els primers valors de l'array
    Array_LCD[1] = 0x01;       //
@@ -480,10 +482,10 @@ void main(void)
 //
     while (1){
 
-        switch(Modo){
+        switch(Modo){ //ESPECIFICA QUIN MODE DEL ROBOT S'ESTA TREBALLANT
 
         case 0x00:                  //Mode inicial
-            if(Number_moni==0)
+            if(Number_moni==0) //CADA VEGADA QUE CANVIA EL MODE AQUESTA VARIABLE LIMITA 1 VEGADA LA QUANTITAT DE VEGADES QUE ES REPRESENTA EL MODE LCD
             {
                 joystick_state=0;
                 delete_LCD();      //Esborra contingut LCD
@@ -495,16 +497,16 @@ void main(void)
 
             delay(100);
 
-            if(joystick_state==2){
+            if(joystick_state==2){ //MOVIMENT ESQUERRE
 
                 move_cursor(Mod_cursor);            //Mou el cursor a la posició escollida
                 delay(10);
-                longitud = sprintf(test_LCD, "@ "); //Prepara la posició en el LCD
+                longitud = sprintf(test_LCD, "@ "); //ELIMINA EL PUNTER DEL ANTERIOR POSICIO
                 I2C_send(0x3E, test_LCD, longitud); //Envia a aquesta posició
                 delay(10);
 
 
-                switch(Menu_position){
+                switch(Menu_position){ //EN FUNCIÓ DEL NOMBRE DE VEGADES QUE ES PRESIONA EL JOYSTICK ESQUERRE DETERMINA LA POSICIO DEL MENU
 
                 case 1:
                     Mod_cursor=0x31;                //Canvia la posició del cursor
@@ -534,7 +536,7 @@ void main(void)
 
 
                 }
-            else if(joystick_state==5){
+            else if(joystick_state==5){ //SI ES PRESIONA EL BOTO  SELECIONARA EL MODE EN QUE TREBALLARA EL ROBOT
                 joystick_state=0;
                 Number_moni=0;
 
@@ -559,8 +561,8 @@ void main(void)
         break;
 
 
-        case 1:
-                if(Number_moni==0){
+        case 1: //CONFIGURACIÓ
+                if(Number_moni==0){ //CADA VEGADA QUE CANVIA EL MODE AQUESTA VARIABLE LIMITA 1 VEGADA LA QUANTITAT DE VEGADES QUE ES REPRESENTA EL MODE LCD
                             joystick_state=0;
                             delete_LCD();
                             Menu_config();
@@ -568,7 +570,7 @@ void main(void)
                             Number_moni=1;
                                     }
                 delay(100);
-                if (joystick_state==1){
+                if (joystick_state==1){ //QUAN ES PRESIONA CAP ADALT CANVIAR ENTRE VELOCITAT I LED A CONFIGURAR
 
                             move_cursor(Mod_cursor);
                             delay(10);
@@ -593,7 +595,7 @@ void main(void)
 
 
                         }
-                if(joystick_state==2){
+                if(joystick_state==2){ //INDICA EL VALOR QUE ES VOL DE VELOCITAT I DEL COLOR RGB
 
 
                     switch(Menuu_position){
@@ -633,7 +635,7 @@ void main(void)
                             }
 
                     }
-                if(joystick_state==5){
+                if(joystick_state==5){ //TORNA AL MENU INICIAL
                     Menu_position=0;
                     Modo=0;
                     joystick_state=0;
@@ -648,7 +650,7 @@ void main(void)
 
 
 
-        default:
+        default: //ELS DEMES MODES FAN SERVIR EL MATEIX MENU DE MONITERITZACIÓ
 
             if(Number_moni==0){
                 joystick_state=0;
@@ -666,10 +668,10 @@ void main(void)
         }
 
 
-        if(Modo>1){
+        if(Modo>1){ 
 
 
-        switch (joystick_state) {
+        switch (joystick_state) { //INDICA EN FUNCIÓ DE LA VARIABLE EL MOVIMENT QUE SEGUIRA EL ROBOT HI HO MOSTRA CONJUNTAMENT AMB LA DIRECCIÓ
         case 0:
             delay(20);
             mov_motor(0x01, 0x00, 0x01, 0x00);                  //En aquest cas para el motor
@@ -768,7 +770,8 @@ void main(void)
             default:
                 break;
         }
-
+	
+	//EN FUNCIÓ DELS MODES ES MODIFICARA EL VALOR DEL JOYSTICK STATE MODO=2 HO DETERMINARA EL JOYSTICK MODO=3 HO DETERMINARA LA LLUM I MODE 4 LA DISTANCIA OBSTACLE
 
         if (update_ADC){
             J_right = mesura_ADC(5);      //Llegeix el valor del canal 5 de l'ADC
@@ -816,7 +819,7 @@ void main(void)
                 }
             }
 
-            if((Modo==3)|(Modo==4)){
+            if((Modo==3)|(Modo==4)){ //VISUALITZA EL DETECTOR DE LLUM PER MODE DE COLISIO I DE LLUMINOSITAT
                 delay(10);
                 move_cursor(0x3A);                                  //Mou el cursor a la posició 0x3A
                 delay(10);
